@@ -1,0 +1,619 @@
+#include "state_game.h"
+#include "state_menu.h"
+
+#include <cmath>
+#include <QDebug>
+
+
+state_game::state_game()
+{
+    //score_s();
+    health = 3;
+    score = 0;
+    level =1;
+    counter = 0;
+
+    count =0;
+
+
+    tuktuk = false;
+    loser = false;
+    game = true;
+
+    ship = new Ship();
+    for(int i=0; i<2;i++)
+    {
+        asters.push_back(new Asteroid());
+    }
+
+    pl1 = new QMediaPlayer();
+    pl2 = new QMediaPlayer();
+    miss = new QMediaPlayer();
+    sound_saucer = new QMediaPlayer();
+
+
+    pl1->setMedia(QUrl("qrc:/sound/resource/win_music.mp3"));
+    pl2->setMedia(QUrl("qrc:/sound/resource/lose_audio.mp3"));
+    sound_saucer->setMedia(QUrl("qrc:/sound/resource/lunatik.mp3"));
+    sound_saucer->setVolume(40);
+    miss->setMedia(QUrl("qrc:/sound/resource/laser.wav"));
+
+    fire_timer = new QTimer();
+    fire_timer->start(2000);
+    connect(fire_timer,SIGNAL(timeout()), this, SLOT(fireMissile()));
+
+
+    //qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
+    int randBackGround = qrand() % 12 + 1;
+    back.load(QString(":/new/image/resource/background/back%1.jpg").arg(randBackGround));
+}
+
+state_game::~state_game()
+{
+    delete ship;
+    delete pl1;
+    delete pl2;
+    delete miss;
+    delete sound_saucer;
+    asters.clear();
+    missiles.clear();
+    m_aster.clear();
+    l_aster.clear();
+    source.clear();
+}
+
+void state_game::new_level()
+{
+    //qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
+    int randBackGround = qrand() % 12 + 1;
+    back.load(QString(":/new/image/resource/background/back%1.jpg").arg(randBackGround));
+
+    counter=0;
+    level++;
+    int ast_num;
+
+    switch(level)
+    {
+        case 2: ast_num = 3;break;
+        case 3: ast_num = 4;break;
+        case 4: ast_num = 5;break;
+        case 5: ast_num = 5;break;
+
+    }
+
+    delete ship;
+    missiles.clear();
+    s_missiles.clear();
+    asters.clear();
+    m_aster.clear();
+    l_aster.clear();
+    source.clear();
+
+    ship = new Ship();
+    for(int i=0; i<=ast_num;i++)
+    {
+        asters.push_back(new Asteroid());
+    }
+    game = true;
+}
+
+
+void state_game::sound_s()
+{
+    if(sound_saucer->state() == QMediaPlayer::PlayingState)
+       sound_saucer->setPosition(0);
+    else if(sound_saucer->state() == QMediaPlayer::StoppedState)
+        sound_saucer->play();
+}
+/*
+void state_game::score_s()
+{
+    QFile file(":/text/resource/leaderboard.txt");
+    QString leaderboard;
+    if(file.open(QIODevice::ReadOnly))
+    {
+        QTextStream out(&file);
+        leaderboard = out.readAll();
+        qDebug()<<leaderboard;
+    }
+    file.close();
+
+    QVector<std::pair<QString,int> > table;
+    QString username;
+    QString score;
+
+    for(int i=0; i< leaderboard.length();i++)
+    {
+        if(leaderboard[i]>='A' && leaderboard[i]<='Z') username.append(leaderboard[i]);
+        if(leaderboard[i]>='0' && leaderboard[i]<='9') score.append(leaderboard[i]);
+        if(leaderboard[i] == '|')
+        {
+            table.push_back(std::make_pair(username,score.toInt()));
+            username.clear();
+            score.clear();
+        }
+
+    }
+
+    qDebug()<<table[0].first;
+
+
+}
+*/
+
+
+void state_game::paint(QPaintEvent * , GameWidget * widget, QPainter *painter, QTimer *timer)
+{
+       palette.setBrush(QPalette::Background,QBrush(back));
+       widget->setPalette(palette);
+       widget->setAutoFillBackground(true);
+
+
+if(game)
+{
+    counter++;
+
+
+
+
+    QTransform tr1,tr2,norm;
+
+    norm.translate(0,0);
+    painter->save(); // save the current printer settings before changing them
+        tr1.translate(ship->x(),ship->y());
+        tr1.rotate(ship->rot());
+    painter->setTransform(tr1);
+    painter->drawPixmap(-30, -23,ship->width(),ship->height(), QPixmap(":/new/image/resource/objects/Ship.png")); // draw the pixmap
+    painter->restore(); // restore the previous painter settings
+    ship->move();
+    painter->setTransform(norm);
+
+
+
+
+
+//--PAINTING OBJECT
+    for(size_t i=0 , n=missiles.size() ;i<n; i++)
+    {
+        missiles[i]->move();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setBrush(QBrush(Qt::green, Qt::SolidPattern));
+        painter->drawEllipse(missiles[i]->x(),missiles[i]->y(),missiles[i]->width(),missiles[i]->height());
+    }
+    for(size_t i=0 , n=s_missiles.size() ;i<n; i++)
+    {
+        s_missiles[i]->move();
+        painter->setBrush(QBrush(Qt::red, Qt::SolidPattern));
+        painter->drawEllipse(s_missiles[i]->x(),s_missiles[i]->y(),s_missiles[i]->width(),s_missiles[i]->height());
+    }
+    for(size_t i=0 , n=asters.size();i<n; i++)
+    {
+
+        asters[i]->move();
+        painter->drawPixmap(asters[i]->x(),asters[i]->y(),asters[i]->pixmap());
+    }
+    for(size_t i=0 , n=m_aster.size();i<n; i++)
+    {
+        m_aster[i]->move();
+        m_aster[i]->move();
+        painter->drawPixmap(m_aster[i]->x(),m_aster[i]->y(),m_aster[i]->pixmap());
+    }
+    for(size_t i=0 , n=l_aster.size() ;i<n; i++)
+    {
+        l_aster[i]->move();
+        l_aster[i]->move();
+        painter->drawPixmap(l_aster[i]->x(),l_aster[i]->y(),l_aster[i]->pixmap());
+    }
+
+    for(size_t i=0 , n=source.size() ;i<n; i++)
+    {
+        source[i]->move();
+        painter->drawPixmap(source[i]->x(),source[i]->y(),source[i]->pixmap());
+    }
+
+//--NEW Source
+    switch(level)
+    {
+        case 1: if(counter == 300)
+        {sound_s();source.push_back(new Source());}break;
+        case 2: if( counter == 200 || counter == 500)
+        {sound_s();source.push_back(new Source());}break;
+        case 3: if(counter == 300 || counter == 400)
+        {sound_s();source.push_back(new Source());}break;
+        case 4: if(counter==200||counter==300||counter==500)
+        {sound_s();source.push_back(new Source());}break;
+        case 5: if(counter==200||counter==400||counter==600||counter ==800)
+        {sound_s();source.push_back(new Source());}break;
+    }
+
+//------------------------COLLISIONS---------------------------------------------------
+
+//--PLAYER + S_Missiles
+    for(size_t i=0 , n=s_missiles.size();i<n; i++)
+    {
+        if (ship->x() < s_missiles[i]->x()+s_missiles[i]->width()  &&
+            ship->x() +60> s_missiles[i]->x()  &&
+            ship->y() < s_missiles[i]->y() + s_missiles[i]->height()  &&
+            ship->y() +46> s_missiles[i]->y())
+        {
+            health--;
+            if(health>0)
+            {
+                delete ship;
+                ship = new Ship();
+                count=0;
+                s_missiles.erase(s_missiles.begin()+i);
+            }
+            else
+                    loser = true;
+        }
+    }
+//--Saucer + Missiles
+    for(size_t i=0, n = source.size();i<n;i++)
+    {
+        for(size_t j=0 , n=missiles.size();j<n; j++)
+        {
+            if (source[i]->x() < missiles[j]->x()+missiles[j]->width()    &&
+                source[i]->x() +70> missiles[j]->x()  &&
+                source[i]->y() < missiles[j]->y() +missiles[i]->height()  &&
+                source[i]->y() +45> missiles[j]->y())
+            {
+                source.erase(source.begin()+i);
+                missiles.erase(missiles.begin()+j);
+            }
+        }
+    }
+//--Saucer + Player
+    for(size_t i=0 , n=source.size();i<n; i++)
+    {
+        if (ship->x() < source[i]->x()+ 70 &&
+            ship->x() +60> source[i]->x()  &&
+            ship->y() < source[i]->y() + 45  &&
+            ship->y() +46> source[i]->y())
+        {
+            health--;
+            if(health>0)
+            {
+                delete ship;
+                ship = new Ship();
+                count =0;
+                source.erase(source.begin()+i);
+            }
+            else
+                    loser = true;
+        }
+    }
+
+
+//--BIG Asteroid + PLAYER
+    for(size_t i=0 , n=asters.size();i<n; i++)
+    {
+        if (ship->x() < asters[i]->x()+70    &&
+            ship->x() +60> asters[i]->x()  &&
+            ship->y() < asters[i]->y() +65  &&
+            ship->y() +46> asters[i]->y())
+        {
+            health--;
+            if(health>0)
+            {
+                delete ship;
+                ship = new Ship();
+                count=0;
+                asters.erase(asters.begin()+i);
+                for(int k=0; k<2;k++)
+                {
+                    m_aster.push_back(new M_Asteroid(asters[i]->x(),asters[i]->y()));
+                }
+            }
+            else
+                loser = true;
+        }
+    }
+//--BIG Asteroid + SAUCER
+    for(size_t i=0, n = source.size();i<n;i++)
+    {
+        for(size_t j=0 , n=asters.size();j<n; j++)
+        {
+            if (source[i]->x() < asters[j]->x()+70    &&
+                source[i]->x() +70> asters[j]->x()  &&
+                source[i]->y() < asters[j]->y() +65  &&
+                source[i]->y() +45> asters[j]->y())
+            {
+                source.erase(source.begin()+i);
+                asters.erase(asters.begin()+j);
+                for(int k=0; k<2;k++)
+                {
+                        m_aster.push_back(new M_Asteroid(asters[j]->x(),asters[j]->y()));
+                }
+            }
+        }
+    }
+//--BIG Asteroid + Missiles
+    for(size_t j=0 , n=asters.size() ;j<n; j++)
+    {
+        for(size_t i=0 , n=missiles.size();i<n; i++)
+        {
+            if (missiles[i]->x() < asters[j]->x()+70    &&
+                missiles[i]->x() + missiles[i]->width()> asters[j]->x()  &&
+                missiles[i]->y() < asters[j]->y() +65  &&
+                missiles[i]->y() +missiles[i]->height()> asters[j]->y())
+            {
+                score+=10;
+                for(int k=0; k<2;k++)
+                {
+                    m_aster.push_back(new M_Asteroid(asters[j]->x(),asters[j]->y()));
+                }
+                asters.erase(asters.begin()+j);
+                missiles.erase(missiles.begin()+i);
+            }
+        }
+    }
+//--BIG Asteroid + S_Missiles
+    for(size_t j=0 , n=asters.size() ;j<n; j++)
+    {
+        for(size_t i=0 , n=s_missiles.size();i<n; i++)
+        {
+            if (s_missiles[i]->x() < asters[j]->x()+70    &&
+                s_missiles[i]->x() + s_missiles[i]->width()> asters[j]->x()  &&
+                s_missiles[i]->y() < asters[j]->y() +65  &&
+                s_missiles[i]->y() +s_missiles[i]->height()> asters[j]->y())
+            {
+                score+=10;
+                for(int k=0; k<2;k++)
+                {
+                    m_aster.push_back(new M_Asteroid(asters[j]->x(),asters[j]->y()));
+                }
+                asters.erase(asters.begin()+j);
+                s_missiles.erase(s_missiles.begin()+i);
+            }
+        }
+    }
+
+
+//--MEDIUM Asteroid + PLAYER
+    for(size_t i=0 , n=m_aster.size();i<n; i++)
+    {
+         if (ship->x() < m_aster[i]->x()+50    &&
+             ship->x() +60> m_aster[i]->x()  &&
+             ship->y() < m_aster[i]->y() +52  &&
+             ship->y() +46> m_aster[i]->y())
+        {
+            health--;
+            if(health>0)
+            {
+                ship = new Ship();
+                count =0;
+                for(int k=0; k<2;k++)
+                {
+                    l_aster.push_back(new L_Asteroid(m_aster[i]->x(),m_aster[i]->y()));
+                }
+                m_aster.erase(m_aster.begin()+i);
+            }
+            else loser = true;
+        }
+    }
+//--MEDIUM Asteroid + SAUCER
+    for(size_t i=0, n = source.size();i<n;i++)
+    {
+        for(size_t j=0 , n=m_aster.size();j<n; j++)
+        {
+            if (source[i]->x() < m_aster[j]->x()+50    &&
+                source[i]->x() +70> m_aster[j]->x()  &&
+                source[i]->y() < m_aster[j]->y() +52  &&
+                source[i]->y() +45> m_aster[j]->y())
+            {
+                source.erase(source.begin()+i);
+                m_aster.erase(m_aster.begin()+j);
+                for(int k=0; k<2;k++)
+                {
+                    l_aster.push_back(new L_Asteroid(m_aster[j]->x(),m_aster[j]->y()));
+                }
+            }
+        }
+    }
+//--MEDIUM Asteroid + Missiles
+    for(size_t j=0 , n=m_aster.size() ;j<n; j++)
+    {
+        for(size_t i=0 , n=missiles.size() ;i<n; i++)
+        {
+            if (missiles[i]->x() < m_aster[j]->x()+50    &&
+                missiles[i]->x() + missiles[i]->width()> m_aster[j]->x()  &&
+                missiles[i]->y() < m_aster[j]->y() +52  &&
+                missiles[i]->y() +missiles[i]->height()> m_aster[j]->y())
+            {
+                score+=50;
+                for(int k=0; k<2;k++)
+                {
+                    l_aster.push_back(new L_Asteroid(m_aster[j]->x(),m_aster[j]->y()));
+                }
+                m_aster.erase(m_aster.begin()+j);
+                missiles.erase(missiles.begin()+i);
+            }
+        }
+    }
+//--MEDIUM Asteroid + S_Missiles
+    for(size_t j=0 , n=m_aster.size() ;j<n; j++)
+    {
+        for(size_t i=0 , n=s_missiles.size();i<n; i++)
+        {
+            if (s_missiles[i]->x() < m_aster[j]->x()+50   &&
+                s_missiles[i]->x() + s_missiles[i]->width()> m_aster[j]->x()  &&
+                s_missiles[i]->y() < m_aster[j]->y() +52  &&
+                s_missiles[i]->y() +s_missiles[i]->height()> m_aster[j]->y())
+            {
+                score+=10;
+                for(int k=0; k<2;k++)
+                {
+                    l_aster.push_back(new L_Asteroid(m_aster[j]->x(),m_aster[j]->y()));
+                }
+                m_aster.erase(m_aster.begin()+j);
+                s_missiles.erase(s_missiles.begin()+i);
+            }
+        }
+    }
+
+
+//--LOW Asteroid + PLAYER
+    for(size_t i=0 , n=l_aster.size();i<n; i++)
+    {
+        if (ship->x() < l_aster[i]->x()+35   &&
+            ship->x() +60> l_aster[i]->x()  &&
+            ship->y() < l_aster[i]->y() +37  &&
+            ship->y() +46> l_aster[i]->y())
+        {
+            health--;
+            if(health>0)
+            {
+                delete ship;
+                ship = new Ship();
+                count=0;
+                l_aster.erase(l_aster.begin()+i);
+            }
+            else loser = true;
+        }
+    }
+//--LOW Asteroid + SAUCER
+    for(size_t i=0, n = source.size();i<n;i++)
+    {
+        for(size_t j=0 , n=l_aster.size();j<n; j++)
+        {
+            if (source[i]->x() < l_aster[j]->x()+35   &&
+                source[i]->x() +70> l_aster[j]->x()  &&
+                source[i]->y() < l_aster[j]->y() +37  &&
+                source[i]->y() +45> l_aster[j]->y())
+            {
+                source.erase(source.begin()+i);
+                l_aster.erase(l_aster.begin()+j);
+            }
+        }
+    }
+//--LOW Asteroid + Missiles
+    for(size_t j=0 , n=l_aster.size() ;j<n; j++)
+    {
+        for(size_t i=0 , n=missiles.size() ;i<n; i++)
+        {
+            if (missiles[i]->x() < l_aster[j]->x()+35    &&
+                missiles[i]->x() + missiles[i]->width()> l_aster[j]->x()  &&
+                missiles[i]->y() < l_aster[j]->y() +37  &&
+                missiles[i]->y() +missiles[i]->height()> l_aster[j]->y())
+            {
+                score+=100;
+                l_aster.erase(l_aster.begin()+j);
+                missiles.erase(missiles.begin()+i);
+
+            }
+        }
+    }
+//--LOW Asteroid + S_Missiles
+    for(size_t j=0 , n=l_aster.size() ;j<n; j++)
+    {
+        for(size_t i=0 , n=s_missiles.size();i<n; i++)
+        {
+            if (s_missiles[i]->x() < l_aster[j]->x()+35   &&
+                s_missiles[i]->x() + s_missiles[i]->width()> l_aster[j]->x()  &&
+                s_missiles[i]->y() < l_aster[j]->y() +37  &&
+                s_missiles[i]->y() +s_missiles[i]->height()> l_aster[j]->y())
+            {
+                score+=10;
+                l_aster.erase(l_aster.begin()+j);
+                s_missiles.erase(s_missiles.begin()+i);
+            }
+        }
+    }
+
+}
+//--PAINT
+    painter->drawPixmap(800,0,QPixmap(":/new/image/resource/objects/score.png"));
+
+    char buffer[100];
+    painter->setPen(Qt::green);
+    painter->setFont(QFont("Helvetica",25,QFont::Normal));
+    painter->drawText(940,40,itoa (health,buffer,10));
+
+    char buf[100];
+    painter->setPen(Qt::green);
+    painter->setFont(QFont("Helvetica",25,QFont::Normal));
+    painter->drawText(810,40,itoa(score,buf,10));
+    painter->setPen(Qt::NoPen);
+//--CHECK STATE
+    if(asters.empty() && m_aster.empty() && l_aster.empty())
+    {
+        game = false;
+        switch(level)
+        {
+            case 1:  painter->drawPixmap(300,200,QPixmap(":/new/image/resource/splashes/splash2.png"));
+
+                     break;
+            case 2:  painter->drawPixmap(300,200,QPixmap(":/new/image/resource/splashes/splash3.png"));
+                     break;
+            case 3:  painter->drawPixmap(300,200,QPixmap(":/new/image/resource/splashes/splash4.png"));
+                     break;
+            case 4:  painter->drawPixmap(300,200,QPixmap(":/new/image/resource/splashes/splash5.png"));
+                     break;
+            case 5:  painter->drawPixmap(0,0,1000,600,QPixmap(":/new/image/resource/events/win_image.jpg"));
+                     pl1->play();break;
+        }
+        if(tuktuk == true)
+        {
+            tuktuk =false;
+            pl1->stop();
+            new_level();
+            if(level>5)
+                setStage(widget,state_menu::instance());
+        }
+    }
+    else if(loser)
+    {
+        game = false;
+        painter->drawPixmap(0,0,1000,600,QPixmap(":/new/image/resource/events/lose_image.jpg"));
+        pl2->play();
+        if(tuktuk == true)
+        {
+            tuktuk =false;
+            pl2->stop();
+            setStage(widget,state_menu::instance());
+        }
+      }
+    else  timer->start(1000/33);
+
+
+}
+void state_game::key_press(GameWidget * , QKeyEvent *event)
+{
+    if (event->isAutoRepeat()) {return ;}
+    if (event->key() == Qt::Key_Up || event->key() == Qt::Key_W) { ship->keyUP = true; }
+    if (event->key() == Qt::Key_Left || event->key() == Qt::Key_A) { ship->keyLeft = true; }
+    if (event->key() == Qt::Key_Right || event->key() == Qt::Key_D) { ship->keyRight = true; }
+    if (event->key() == Qt::Key_Space)
+    {
+        if(miss->state() == QMediaPlayer::PlayingState)
+            miss->setPosition(0);
+        else if(miss->state() == QMediaPlayer::StoppedState)
+             miss->play();
+        missiles.push_back(new Missile(ship->x(),ship->y(),ship->rot(),15));
+    }
+    if (event->key() == Qt::Key_Return) { tuktuk =true; }
+    if (event->key() == Qt::Key_P){if(pause) pause = false;else pause = true;}
+
+
+}
+
+void state_game::key_release(GameWidget *, QKeyEvent *event)
+{
+    if(event->isAutoRepeat()) { return ;}
+    if (event->key() == Qt::Key_Up || event->key() == Qt::Key_W) { ship->keyUP = false; ship->inertia = ship->speed; }
+    if (event->key() == Qt::Key_Left || event->key() == Qt::Key_A) { ship->keyLeft = false; }
+    if (event->key() == Qt::Key_Right || event->key() == Qt::Key_D) { ship->keyRight = false; }
+}
+
+void state_game::fireMissile()
+{
+    for(size_t i=0 , n= source.size() ;i<n; i++)
+    {
+        double deltaY = ship->y() - source[i]->y();
+        double deltaX = ship->x() - source[i]->x();
+        double angle = ::atan2(deltaY, deltaX) * 180 / M_PI + 90;
+        s_missiles.push_back(new Missile(source[i]->x(),source[i]->y(),angle,10));
+    }
+}
+

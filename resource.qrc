@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/new/image">
+        <file>resource/loading/loading.png</file>
+        <file>resource/menu/Arkanoid.png</file>
+        <file>resource/menu/score.png</file>
+        <file>resource/menu/menu.png</file>
+        <file>resource/menu/Arrow.png</file>
+        <file>resource/menu/HighScore.png</file>
+        <file>resource/background/PlayGame.jpg</file>
+        <file>resource/loading/loading1.png</file>
+        <file>resource/loading/loading2.png</file>
+        <file>resource/loading/loading3.png</file>
+        <file>resource/loading/loading4.png</file>
+        <file>resource/background/Images.png</file>
+        <file>resource/game/paddle.png</file>
+        <file>resource/game/Ball.png</file>
+        <file>resource/game/block.png</file>
+    </qresource>
+    <qresource prefix="/text">
+        <file>resource/leaderboard.txt</file>
+    </qresource>
+</RCC>

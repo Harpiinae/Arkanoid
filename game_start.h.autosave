@@ -1,0 +1,17 @@
+#ifndef GAME_START
+#define GAME_START
+
+#include "state.h"
+
+class game_start:public State
+{
+    game_start();
+    ~game_start(){}
+    void Clear();
+    void Draw();
+};
+
+
+
+#endif // GAME_START
+
