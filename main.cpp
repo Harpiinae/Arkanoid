@@ -2,7 +2,7 @@
 #include <QApplication>
 #include <cstdlib>
 #include <ctime>
-//Second Git Commit
+//Second
 int main(int argc, char *argv[])
 {
    QApplication a(argc, argv);
